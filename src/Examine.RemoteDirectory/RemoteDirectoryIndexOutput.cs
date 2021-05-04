@@ -15,6 +15,7 @@ namespace Examine.RemoteDirectory
 
         //private CloudBlobContainer _blobContainer;
         private readonly string _name;
+        private readonly ILoggingService _loggingService;
         private IndexOutput _indexOutput;
         private readonly Mutex _fileMutex;
         private IRemoteDirectory _azureRemoteDirectory;
@@ -26,6 +27,7 @@ namespace Examine.RemoteDirectory
         {
             //NOTE: _name was null here, is this intended? https://github.com/azure-contrib/AzureDirectory/issues/19 I have changed this to be correct now
             _name = name;
+            _loggingService = loggingService;
             _azureSyncDirectory = azureSyncDirectory ?? throw new ArgumentNullException(nameof(azureSyncDirectory));
             _azureRemoteDirectory = _azureSyncDirectory.RemoteDirectory;
             _fileMutex = SyncMutexManager.GrabMutex(_azureSyncDirectory, _name);
@@ -33,6 +35,7 @@ namespace Examine.RemoteDirectory
             try
             {
                 // create the local cache one we will operate against...
+                _loggingService.Log(new LogEntry(LogLevel.Info, null, $"Create local ouput"));
                 _indexOutput = CacheDirectory.CreateOutput(_name);
             }
             finally
@@ -63,6 +66,7 @@ namespace Examine.RemoteDirectory
                         // make sure it's all written out
                         _indexOutput.Flush();
                         originalLength = _indexOutput.Length;
+                        _loggingService.Log(new LogEntry(LogLevel.Info, null, $"saving local file{fileName}"));
                     }
                     finally
                     {
@@ -78,17 +82,18 @@ namespace Examine.RemoteDirectory
                     // push the blobStream up to the cloud
                     if (!result)
                     {
+                        _loggingService.Log(new LogEntry(LogLevel.Error,null,$"Upload for file {fileName} failed"));
+
                         throw new Exception("File already exists");
                     }
 
 #if FULLDEBUG
-                    Trace.WriteLine($"CLOSED WRITESTREAM {_name}");
+                _loggingService.Log(new LogEntry(LogLevel.Info,null,$"CLOSED WRITESTREAM {_name}"));
 #endif
                 }
 
                 // clean up
                 _indexOutput = null;
-                //_blobContainer = null;
                 GC.SuppressFinalize(this);
             }
             finally

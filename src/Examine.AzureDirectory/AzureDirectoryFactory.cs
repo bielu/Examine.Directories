@@ -18,7 +18,7 @@ namespace Examine.AzureDirectory
     /// <summary>
     /// The <see cref="IDirectoryFactory"/> for storing master index data in Blob storage for use on the server that can actively write to the index
     /// </summary>
-    public class AzureDirectoryFactory : SyncTempEnvDirectoryFactory, IDirectoryFactory
+    public class AzureDirectoryFactory : SyncTempEnvDirectoryFactory, IDirectoryFactory, IDirectoryFactory2
     {
         private readonly ILoggingService _loggingService;
         private readonly bool _isReadOnly;
@@ -55,10 +55,14 @@ namespace Examine.AzureDirectory
         /// </returns>
         public override Lucene.Net.Store.Directory CreateDirectory(DirectoryInfo luceneIndexFolder)
         {
+            return CreateDirectory(luceneIndexFolder, _loggingService);
+        }
+        public virtual Directory CreateDirectory(DirectoryInfo luceneIndexFolder, ILoggingService loggingService)
+        {
             var directory = new RemoteSyncDirectory(
                 new AzureRemoteDirectory(GetStorageAccountConnectionString(), GetContainerName(),
-                    luceneIndexFolder.Name, _loggingService),
-                GetLocalCacheDirectory(luceneIndexFolder), _loggingService);
+                    luceneIndexFolder.Name, loggingService),
+                GetLocalCacheDirectory(luceneIndexFolder), loggingService);
             directory.SetMergePolicyAction(e => new NoMergePolicy(e));
             directory.SetMergeScheduler(new NoMergeSheduler());
             directory.SetDeletion(new NoDeletionPolicy());
